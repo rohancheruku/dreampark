@@ -5,17 +5,17 @@ INSERT INTO theme_park (theme_park_id, name, location, number_of_rides) VALUES
 (2, 'Barbie Dreamland', 'Orlando, FL', 10),
 (3, 'Superhero Adventure Park', 'Los Angeles, CA', 10);
 
-INSERT INTO visitor (visitor_id, first_name, last_name) VALUES
-(1, 'Aarav', 'Patel'),
-(2, 'Sophia', 'Martinez'),
-(3, 'Daniel', 'Johnson'),
-(4, 'Emily', 'Brown'),
-(5, 'Noah', 'Williams'),
-(6, 'Mia', 'Garcia'),
-(7, 'Liam', 'Anderson'),
-(8, 'Olivia', 'Thomas'),
-(9, 'Ethan', 'Lee'),
-(10, 'Ava', 'Wilson');
+INSERT INTO visitor (visitor_id, first_name, last_name, ticket_id, membership_id, email) VALUES
+(1, 'Aarav', 'Patel', 1, 1, 'aarav.patel@example.com'),
+(2, 'Sophia', 'Martinez', 2, 2, 'sophia.martinez@example.com'),
+(3, 'Daniel', 'Johnson', 3, 3, 'daniel.johnson@example.com'),
+(4, 'Emily', 'Brown', 4, 4, 'emily.brown@example.com'),
+(5, 'Noah', 'Williams', 5, 5, 'noah.williams@example.com'),
+(6, 'Mia', 'Garcia', 6, 6, 'mia.garcia@example.com'),
+(7, 'Liam', 'Anderson', 7, 7, 'liam.anderson@example.com'),
+(8, 'Olivia', 'Thomas', 8, 8, 'olivia.thomas@example.com'),
+(9, 'Ethan', 'Lee', 9, 9, 'ethan.lee@example.com'),
+(10, 'Ava', 'Wilson', 10, 10, 'ava.wilson@example.com');
 
 INSERT INTO membership (membership_id, type, price, date_started, num_guests, visitor_id, theme_park_id) VALUES
 (1, 'Basic', 99.99, '2026-01-05', 1, 1, 1),
@@ -52,17 +52,17 @@ UPDATE visitor SET membership_id = 8, ticket_id = 8 WHERE visitor_id = 8;
 UPDATE visitor SET membership_id = 9, ticket_id = 9 WHERE visitor_id = 9;
 UPDATE visitor SET membership_id = 10, ticket_id = 10 WHERE visitor_id = 10;
 
-INSERT INTO department (department_id, name, num_employees, theme_park_id) VALUES
-(1, 'Ride Operations', 45, 1),
-(2, 'Guest Services', 30, 1),
-(3, 'Maintenance', 40, 1),
-(4, 'Security', 25, 2),
-(5, 'Food Services', 50, 2),
-(6, 'Entertainment', 35, 2),
-(7, 'Retail', 20, 3),
-(8, 'First Aid', 15, 3),
-(9, 'Cleaning Services', 28, 3),
-(10, 'Administration', 18, 3);
+INSERT INTO department (department_id, name, num_employees, dept_head_id, theme_park_id) VALUES
+(1, 'Ride Operations', 45, NULL, 1),
+(2, 'Guest Services', 30, NULL, 1),
+(3, 'Maintenance', 40, NULL, 1),
+(4, 'Security', 25, NULL, 2),
+(5, 'Food Services', 50, NULL, 2),
+(6, 'Entertainment', 35, NULL, 2),
+(7, 'Retail', 20, NULL, 3),
+(8, 'First Aid', 15, NULL, 3),
+(9, 'Cleaning Services', 28, NULL, 3),
+(10, 'Administration', 18, NULL, 3);
 
 INSERT INTO employee (employee_id, first_name, last_name, ssn, salary, phone_number, address, department_id) VALUES
 (1, 'James', 'Carter', '123456789', 52000.00, '2145551001', '101 Main St', 1),
