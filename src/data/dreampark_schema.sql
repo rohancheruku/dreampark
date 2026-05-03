@@ -101,3 +101,11 @@ CREATE TABLE ride_wait_snapshots (
   recorded_at TEXT NOT NULL DEFAULT (datetime ('now')),
   wait_minutes INTEGER NOT NULL CHECK (wait_minutes >= 0)
 );
+
+CREATE TABLE ride_schedule (
+    schedule_id SERIAL PRIMARY KEY,
+    ride_id INT REFERENCES ride(ride_id),
+    schedule_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL
+);

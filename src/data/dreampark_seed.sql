@@ -169,3 +169,10 @@ INSERT INTO ride_wait_snapshots (ride_id, wait_minutes, recorded_at) VALUES
 (28, 19, datetime ('now', '-6 minutes')),
 (10, 31, datetime ('now', '-4 minutes')),
 (20, 27, datetime ('now', '-2 minutes'));
+
+INSERT INTO ride_schedule (ride_id, schedule_date, start_time, end_time) VALUES
+(1, '2026-05-06', '09:00', '10:00'),
+(2, '2026-05-06', '10:00', '11:00'),
+(3, '2026-05-06', '11:00', '12:00'),
+(11, '2026-05-07', '09:30', '10:30'),
+(21, '2026-05-07', '10:30', '11:30');
