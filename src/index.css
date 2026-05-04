@@ -309,7 +309,7 @@ table.data-table td {
 .ferris-wheel-bg__svg {
   position: absolute;
   left: 50%;
-  bottom: 0;
+  bottom: 40%;
   width: 135%;
   min-width: 960px;
   height: auto;
@@ -365,21 +365,6 @@ table.data-table td {
   margin: 0.25rem 0 0.35rem;
   font-size: 1.35rem;
   line-height: 1.2;
-}
-
-.home-customers__sub {
-  margin: 0;
-  max-width: 640px;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-.home-customers__sub code {
-  font-size: 0.85em;
-  color: rgba(226, 232, 240, 0.85);
-  padding: 0.1em 0.35em;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .home-customers__stamp {

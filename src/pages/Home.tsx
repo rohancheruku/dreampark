@@ -102,10 +102,6 @@ export function Home() {
             <div>
               <p className="home-kicker">In the park right now</p>
               <h2 className="home-customers__title display">Guests with an active ticket</h2>
-              <p className="home-customers__sub">
-                Pulled from <code>visitor.ticket_id</code>. Updates when someone checks out on Tickets and every few
-                seconds.
-              </p>
             </div>
             {updatedAt ? <span className="home-customers__stamp">Updated {updatedAt}</span> : null}
           </div>
