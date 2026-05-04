@@ -25,11 +25,17 @@ export function Layout() {
           <NavLink to="/tickets" className={navLinkClass}>
             Tickets
           </NavLink>
+          <NavLink to="/membership" className={navLinkClass}>
+            Membership
+          </NavLink>
           <NavLink to="/rides" className={navLinkClass}>
             Rides
           </NavLink>
           <NavLink to="/operations" className={navLinkClass}>
             Wait times
+          </NavLink>
+          <NavLink to="/admin" className={navLinkClass}>
+            Admin
           </NavLink>
         </nav>
       </motion.header>
