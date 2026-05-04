@@ -3,19 +3,73 @@ import schemaSql from "../data/dreampark_schema.sql?raw";
 import seedSql from "../data/dreampark_seed.sql?raw";
 import wasmUrl from "sql.js/dist/sql-wasm.wasm?url";
 
+/** Matches checkout / ticket flow for display (e.g. Home “price with tax”). */
+export const DEFAULT_TAX_RATE = 0.08;
+
+export function priceWithTax(base: number, taxRate: number = DEFAULT_TAX_RATE): number {
+  return Math.round(base * (1 + taxRate) * 100) / 100;
+}
+
+const DB_STORAGE_KEY = "dreampark-sqlite-v1";
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+export function persistDatabase(db: Database): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    const data = db.export();
+    localStorage.setItem(DB_STORAGE_KEY, uint8ToBase64(data));
+  } catch (e) {
+    console.warn("Could not persist database to localStorage:", e);
+  }
+}
+
 let dbPromise: Promise<Database> | null = null;
 
 export async function getDb(): Promise<Database> {
   if (!dbPromise) {
     dbPromise = (async () => {
       const SQL = await initSqlJs({ locateFile: () => wasmUrl });
+      const saved =
+        typeof localStorage !== "undefined" ? localStorage.getItem(DB_STORAGE_KEY) : null;
+      if (saved) {
+        try {
+          const db = new SQL.Database(base64ToUint8(saved));
+          return db;
+        } catch {
+          localStorage.removeItem(DB_STORAGE_KEY);
+        }
+      }
       const db = new SQL.Database();
       db.exec(schemaSql);
       db.exec(seedSql);
+      persistDatabase(db);
       return db;
     })();
   }
   return dbPromise;
+}
+
+/** Clears saved DB and reloads the page so seed data is fresh. */
+export function resetPersistedDatabase(): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(DB_STORAGE_KEY);
+  dbPromise = null;
+  window.location.reload();
 }
 
 export function resultToObjects(result: QueryExecResult): Record<string, string | number | null>[] {
@@ -63,7 +117,7 @@ export async function checkoutOrder(input: {
   taxRate?: number;
 }): Promise<{ totalTickets: number; subtotal: number; tax: number; total: number }> {
   const db = await getDb();
-  const taxRate = input.taxRate ?? 0.08;
+  const taxRate = input.taxRate ?? DEFAULT_TAX_RATE;
   const { first, last } = splitName(input.fullName);
 
   let visitorId: number;
@@ -115,9 +169,15 @@ export async function checkoutOrder(input: {
 export const DB_CHANGED_EVENT = "dreampark-db-changed";
 
 export function notifyDbChanged() {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(DB_CHANGED_EVENT));
-  }
+  if (typeof window === "undefined") return;
+  void getDb()
+    .then((db) => {
+      persistDatabase(db);
+    })
+    .catch(() => {})
+    .finally(() => {
+      window.dispatchEvent(new CustomEvent(DB_CHANGED_EVENT));
+    });
 }
 
 export function onDbChanged(handler: () => void) {
@@ -393,7 +453,9 @@ export async function adminAddRide(input: {
 export async function adminDeleteRide(rideId: number): Promise<void> {
   const db = await getDb();
   const parkRow = db.exec("SELECT theme_park_id FROM ride WHERE ride_id = " + String(rideId));
-  if (!parkRow.length || !parkRow[0].values.length) return;
+  if (!parkRow.length || !parkRow[0].values.length) {
+    throw new Error("Ride not found.");
+  }
   const themeParkId = Number(parkRow[0].values[0][0]);
 
   const cntRow = db.exec("SELECT COUNT(*) FROM ride WHERE theme_park_id = " + String(themeParkId));
@@ -403,7 +465,128 @@ export async function adminDeleteRide(rideId: number): Promise<void> {
   }
 
   db.run("DELETE FROM ride_wait_snapshots WHERE ride_id = ?", [rideId]);
+  db.run("DELETE FROM ride_schedule WHERE ride_id = ?", [rideId]);
   db.run("DELETE FROM ride WHERE ride_id = ?", [rideId]);
   syncRideCounts(db);
   notifyDbChanged();
+}
+
+export async function adminUpdateRide(input: {
+  rideId: number;
+  name: string;
+  duration: number;
+  capacity: number;
+  type: string;
+  minHeight: number;
+  status: string;
+}): Promise<void> {
+  const db = await getDb();
+  db.run(
+    `UPDATE ride SET name = ?, duration = ?, capacity = ?, type = ?, min_height = ?, status = ?
+     WHERE ride_id = ?`,
+    [
+      input.name.trim(),
+      input.duration,
+      input.capacity,
+      input.type,
+      input.minHeight,
+      input.status,
+      input.rideId,
+    ],
+  );
+  notifyDbChanged();
+}
+
+export async function adminSetDepartmentHead(departmentId: number, employeeId: number | null): Promise<void> {
+  const db = await getDb();
+  if (employeeId !== null) {
+    const chk = db.exec(
+      "SELECT department_id FROM employee WHERE employee_id = " +
+        String(employeeId) +
+        " AND department_id = " +
+        String(departmentId),
+    );
+    if (!chk.length || !chk[0].values.length) {
+      throw new Error("That employee is not in this department.");
+    }
+  }
+  db.run("UPDATE department SET dept_head_id = ? WHERE department_id = ?", [employeeId, departmentId]);
+  notifyDbChanged();
+}
+
+export async function adminUpdateEmployee(input: {
+  employeeId: number;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  salary: number;
+  address: string;
+}): Promise<void> {
+  const db = await getDb();
+  db.run(
+    "UPDATE employee SET first_name = ?, last_name = ?, phone_number = ?, salary = ?, address = ? WHERE employee_id = ?",
+    [
+      input.firstName.trim(),
+      input.lastName.trim(),
+      input.phoneNumber.trim(),
+      input.salary,
+      input.address.trim(),
+      input.employeeId,
+    ],
+  );
+  notifyDbChanged();
+}
+
+export async function adminFireEmployee(employeeId: number): Promise<void> {
+  const db = await getDb();
+  db.run("UPDATE department SET dept_head_id = NULL WHERE dept_head_id = ?", [employeeId]);
+  db.run("DELETE FROM employee WHERE employee_id = ?", [employeeId]);
+  db.run(`
+    UPDATE department AS d SET num_employees = (
+      SELECT COUNT(*) FROM employee e WHERE e.department_id = d.department_id
+    )
+  `);
+  notifyDbChanged();
+}
+
+export type MembershipRow = {
+  membership_id: number;
+  type: string;
+  price: number;
+  num_guests: number;
+  date_started: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  park_name: string | null;
+};
+
+export async function fetchMembershipRows(): Promise<MembershipRow[]> {
+  const rows = await runQuery(`
+    SELECT
+      m.membership_id,
+      m.type,
+      m.price,
+      m.num_guests,
+      m.date_started,
+      v.first_name,
+      v.last_name,
+      v.email,
+      tp.name AS park_name
+    FROM membership m
+    JOIN visitor v ON v.visitor_id = m.visitor_id
+    LEFT JOIN theme_park tp ON tp.theme_park_id = m.theme_park_id
+    ORDER BY m.membership_id
+  `);
+  return rows.map((r) => ({
+    membership_id: Number(r.membership_id),
+    type: String(r.type),
+    price: Number(r.price),
+    num_guests: Number(r.num_guests),
+    date_started: String(r.date_started),
+    first_name: String(r.first_name),
+    last_name: String(r.last_name),
+    email: r.email === null ? null : String(r.email),
+    park_name: r.park_name === null ? null : String(r.park_name),
+  }));
 }

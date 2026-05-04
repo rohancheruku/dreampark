@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
-import { getDb, onDbChanged, runQuery } from "../lib/db";
+import { adminUpdateRide, getDb, onDbChanged, runQuery } from "../lib/db";
 
 type RideRow = {
   ride_id: number;
@@ -20,8 +20,14 @@ const statusTone: Record<string, string> = {
   Closed: "status-pill--closed",
 };
 
+const RIDE_TYPES = ["Water", "Rollercoaster", "3D", "Carousel", "Ferris Wheel", "Vertical"] as const;
+const RIDE_STATUS = ["Open", "Maintenance", "Construction", "Closed"] as const;
+
 export function Rides() {
   const [rows, setRows] = useState<RideRow[]>([]);
+  const [editDraft, setEditDraft] = useState<RideRow | null>(null);
+  const [rideMsg, setRideMsg] = useState<string | null>(null);
+  const [rideErr, setRideErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     await getDb();
@@ -63,6 +69,33 @@ export function Rides() {
     });
   }, [load]);
 
+  const beginEdit = (r: RideRow) => {
+    setRideErr(null);
+    setRideMsg(null);
+    setEditDraft({ ...r });
+  };
+
+  const saveEdit = async () => {
+    if (!editDraft) return;
+    setRideErr(null);
+    try {
+      await adminUpdateRide({
+        rideId: editDraft.ride_id,
+        name: editDraft.name,
+        duration: editDraft.duration,
+        capacity: editDraft.capacity,
+        type: editDraft.type,
+        minHeight: editDraft.min_height,
+        status: editDraft.status,
+      });
+      setRideMsg(`Updated ${editDraft.name}.`);
+      setEditDraft(null);
+      window.setTimeout(() => setRideMsg(null), 3500);
+    } catch (e) {
+      setRideErr(e instanceof Error ? e.message : "Could not update ride.");
+    }
+  };
+
   return (
     <div className="page-shell rides-page">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
@@ -92,9 +125,105 @@ export function Rides() {
               <span>Min height {a.min_height} ft</span>
               <span>Cap. {a.capacity}</span>
             </div>
+            <div className="ride-card__actions">
+              <button type="button" className="btn-ghost btn-ghost--sm" onClick={() => beginEdit(a)}>
+                Update details
+              </button>
+            </div>
           </motion.article>
         ))}
       </div>
+
+      {rideMsg ? <p className="rides-toast rides-toast--ok">{rideMsg}</p> : null}
+      {rideErr ? <p className="rides-toast rides-toast--err">{rideErr}</p> : null}
+
+      {editDraft ? (
+        <motion.section
+          className="rides-update glass"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h2 className="rides-update__title">Update ride #{editDraft.ride_id}</h2>
+          <p className="page-lead admin-note">Changes apply everywhere this ride appears (including Admin).</p>
+          <div className="admin-form-stack">
+            <label className="field">
+              <span>Name</span>
+              <input value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} />
+            </label>
+            <div className="admin-inline">
+              <label className="field">
+                <span>Duration (min)</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={editDraft.duration}
+                  onChange={(e) => setEditDraft({ ...editDraft, duration: Number(e.target.value) })}
+                />
+              </label>
+              <label className="field">
+                <span>Capacity</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={editDraft.capacity}
+                  onChange={(e) => setEditDraft({ ...editDraft, capacity: Number(e.target.value) })}
+                />
+              </label>
+              <label className="field">
+                <span>Min height (ft)</span>
+                <input
+                  type="number"
+                  step={0.1}
+                  min={0}
+                  value={editDraft.min_height}
+                  onChange={(e) => setEditDraft({ ...editDraft, min_height: Number(e.target.value) })}
+                />
+              </label>
+            </div>
+            <label className="field">
+              <span>Type</span>
+              <select
+                value={editDraft.type}
+                onChange={(e) => setEditDraft({ ...editDraft, type: e.target.value })}
+              >
+                {RIDE_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Status</span>
+              <select
+                value={editDraft.status}
+                onChange={(e) => setEditDraft({ ...editDraft, status: e.target.value })}
+              >
+                {RIDE_STATUS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="admin-edit-actions">
+              <button type="button" className="btn-primary" onClick={() => void saveEdit()}>
+                Save changes
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  setEditDraft(null);
+                  setRideErr(null);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </motion.section>
+      ) : null}
     </div>
   );
 }

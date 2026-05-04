@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { checkoutOrder, getDb, runQuery } from "../lib/db";
+import { checkoutOrder, DEFAULT_TAX_RATE, getDb, runQuery } from "../lib/db";
 
 type TicketOffer = {
   theme_park_id: number;
@@ -71,7 +71,7 @@ export function Tickets() {
   }, []);
 
   const subtotal = useMemo(() => cart.reduce((s, l) => s + l.offer.price * l.quantity, 0), [cart]);
-  const tax = useMemo(() => Math.round(subtotal * 0.08 * 100) / 100, [subtotal]);
+  const tax = useMemo(() => Math.round(subtotal * DEFAULT_TAX_RATE * 100) / 100, [subtotal]);
   const total = useMemo(() => Math.round((subtotal + tax) * 100) / 100, [subtotal, tax]);
 
   const checkout = async () => {
