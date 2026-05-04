@@ -309,7 +309,7 @@ table.data-table td {
 .ferris-wheel-bg__svg {
   position: absolute;
   left: 50%;
-  bottom: 40%;
+  bottom: 68%;
   width: 135%;
   min-width: 960px;
   height: auto;
@@ -916,4 +916,145 @@ table.data-table td {
   .site-nav {
     justify-content: center;
   }
+}
+
+.home-members {
+  margin-top: 1.5rem;
+}
+
+.table-price-note {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.admin-dept-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.admin-dept-details {
+  border-radius: var(--radius-md);
+  padding: 0.35rem 0.85rem;
+}
+
+.admin-dept-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.65rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.admin-dept-summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-dept-summary__title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.admin-dept-body {
+  padding-bottom: 0.85rem;
+}
+
+.admin-dept-head-field {
+  max-width: 420px;
+  margin-bottom: 0.75rem;
+}
+
+.admin-head-pill {
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+.admin-fire-btn {
+  color: #fecaca;
+}
+
+.admin-edit-ride {
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+.admin-edit-ride__title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.admin-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.admin-form-stack--grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.65rem;
+}
+
+@media (max-width: 640px) {
+  .admin-form-stack--grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-field-span2 {
+  grid-column: 1 / -1;
+}
+
+.admin-reset-note {
+  margin: 1rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.admin-reset-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-cyan);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ride-card__actions {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rides-update {
+  margin-top: 2rem;
+  padding: 1.35rem 1.5rem;
+}
+
+.rides-update__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.2rem;
+}
+
+.rides-toast {
+  margin: 1rem 0 0;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+}
+
+.rides-toast--ok {
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  color: #6ee7b7;
+}
+
+.rides-toast--err {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  color: #fecaca;
 }

@@ -2,7 +2,15 @@ import { motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FerrisWheelBg } from "../components/FerrisWheelBg";
-import { fetchPresentCustomers, getDb, onDbChanged, type PresentCustomer } from "../lib/db";
+import {
+  fetchMembershipRows,
+  fetchPresentCustomers,
+  getDb,
+  onDbChanged,
+  priceWithTax,
+  type MembershipRow,
+  type PresentCustomer,
+} from "../lib/db";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 18 },
@@ -15,12 +23,14 @@ const fadeUp = {
 
 export function Home() {
   const [customers, setCustomers] = useState<PresentCustomer[]>([]);
+  const [memberships, setMemberships] = useState<MembershipRow[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string>("");
 
   const refreshCustomers = useCallback(async () => {
     await getDb();
-    const rows = await fetchPresentCustomers();
-    setCustomers(rows);
+    const [guestRows, memberRows] = await Promise.all([fetchPresentCustomers(), fetchMembershipRows()]);
+    setCustomers(guestRows);
+    setMemberships(memberRows);
     setUpdatedAt(new Date().toLocaleTimeString());
   }, []);
 
@@ -113,7 +123,7 @@ export function Home() {
                   <th>Email</th>
                   <th>Ticket</th>
                   <th>Park</th>
-                  <th>Price</th>
+                  <th>Total (incl. tax)</th>
                 </tr>
               </thead>
               <tbody>
@@ -135,7 +145,66 @@ export function Home() {
                         <span className="muted-xs">#{c.ticket_id}</span>
                       </td>
                       <td>{c.park_name}</td>
-                      <td>${c.ticket_price.toFixed(2)}</td>
+                      <td>
+                        ${priceWithTax(c.ticket_price).toFixed(2)}
+                        <span className="muted-xs table-price-note"> base ${c.ticket_price.toFixed(2)}</span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </motion.section>
+
+        <motion.section
+          className="home-customers glass home-members"
+          custom={5}
+          variants={fadeUp}
+          initial="hidden"
+          animate="show"
+        >
+          <div className="home-customers__head">
+            <div>
+              <p className="home-kicker">Memberships</p>
+              <h2 className="home-customers__title display">Members &amp; plans</h2>
+            </div>
+          </div>
+          <div className="table-scroll">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Email</th>
+                  <th>Plan</th>
+                  <th>Home park</th>
+                  <th>Guests</th>
+                  <th>Since</th>
+                  <th>Plan price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {memberships.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="home-customers__empty">
+                      No memberships yet—see the Membership page to join.
+                    </td>
+                  </tr>
+                ) : (
+                  memberships.map((m) => (
+                    <tr key={m.membership_id}>
+                      <td>
+                        {m.first_name} {m.last_name}
+                      </td>
+                      <td>{m.email ?? "—"}</td>
+                      <td>
+                        <span className="ticket-pill">{m.type}</span>{" "}
+                        <span className="muted-xs">#{m.membership_id}</span>
+                      </td>
+                      <td>{m.park_name ?? "—"}</td>
+                      <td>{m.num_guests}</td>
+                      <td>{m.date_started}</td>
+                      <td>${m.price.toFixed(2)}</td>
                     </tr>
                   ))
                 )}
