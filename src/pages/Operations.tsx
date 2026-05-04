@@ -12,14 +12,14 @@ export function Operations() {
       SELECT
         tp.name AS park,
         r.name AS ride,
-        w.wait_minutes,
-        w.recorded_at,
+        r.wait_minutes,
+        r.recorded_at,
         r.status AS ride_status,
         r.type AS ride_type
-      FROM ride_wait_snapshots w
-      JOIN ride r ON r.ride_id = w.ride_id
+      FROM ride r
       JOIN theme_park tp ON tp.theme_park_id = r.theme_park_id
-      ORDER BY w.recorded_at DESC
+      WHERE r.wait_minutes IS NOT NULL AND r.recorded_at IS NOT NULL
+      ORDER BY r.recorded_at DESC
     `;
     const r = await runQuery(sql);
     setRows(r);

@@ -10,7 +10,7 @@ export function priceWithTax(base: number, taxRate: number = DEFAULT_TAX_RATE): 
   return Math.round(base * (1 + taxRate) * 100) / 100;
 }
 
-const DB_STORAGE_KEY = "dreampark-sqlite-v1";
+const DB_STORAGE_KEY = "dreampark-sqlite-v2";
 
 function uint8ToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -140,10 +140,12 @@ export async function checkoutOrder(input: {
   let ticketCount = 0;
   for (const line of input.lines) {
     for (let q = 0; q < line.quantity; q++) {
-      db.run(
-        "INSERT INTO ticket (type, theme_park_id, price, duration, visitor_id) VALUES (?, ?, ?, ?, ?)",
-        [line.type, line.themeParkId, line.price, line.duration, visitorId],
-      );
+      db.run("INSERT INTO ticket (type, price, duration, visitor_id) VALUES (?, ?, ?, ?)", [
+        line.type,
+        line.price,
+        line.duration,
+        visitorId,
+      ]);
       const tidRow = db.exec("SELECT last_insert_rowid() AS id");
       lastTicketId = Number(tidRow[0].values[0][0]);
       db.run("INSERT INTO ticket_theme_park (ticket_id, theme_park_id) VALUES (?, ?)", [
@@ -206,11 +208,17 @@ export async function fetchPresentCustomers(): Promise<PresentCustomer[]> {
       v.email,
       t.ticket_id,
       t.type AS ticket_type,
-      tp.name AS park_name,
+      (
+        SELECT tp2.name
+        FROM ticket_theme_park ttp2
+        JOIN theme_park tp2 ON tp2.theme_park_id = ttp2.theme_park_id
+        WHERE ttp2.ticket_id = t.ticket_id
+        ORDER BY ttp2.theme_park_id
+        LIMIT 1
+      ) AS park_name,
       t.price AS ticket_price
     FROM visitor v
     JOIN ticket t ON t.ticket_id = v.ticket_id
-    JOIN theme_park tp ON tp.theme_park_id = t.theme_park_id
     ORDER BY t.ticket_id DESC
   `);
   return rows.map((r) => ({
@@ -220,7 +228,7 @@ export async function fetchPresentCustomers(): Promise<PresentCustomer[]> {
     email: r.email === null ? null : String(r.email),
     ticket_id: Number(r.ticket_id),
     ticket_type: String(r.ticket_type),
-    park_name: String(r.park_name),
+    park_name: r.park_name == null ? "—" : String(r.park_name),
     ticket_price: Number(r.ticket_price),
   }));
 }
@@ -380,7 +388,9 @@ export async function adminAddThemePark(input: { name: string; location: string 
 
 export async function adminDeleteThemePark(themeParkId: number): Promise<void> {
   const db = await getDb();
-  const dep = db.exec("SELECT COUNT(*) AS c FROM department WHERE theme_park_id = " + String(themeParkId));
+  const dep = db.exec(
+    "SELECT COUNT(*) AS c FROM department_theme_park WHERE theme_park_id = " + String(themeParkId),
+  );
   const depCount = dep.length ? Number(dep[0].values[0][0]) : 0;
   if (depCount > 0) {
     throw new Error(
@@ -388,33 +398,25 @@ export async function adminDeleteThemePark(themeParkId: number): Promise<void> {
     );
   }
 
-  const rideIdsRes = db.exec("SELECT ride_id FROM ride WHERE theme_park_id = " + String(themeParkId));
-  const rideIds: number[] = [];
-  if (rideIdsRes[0]) {
-    for (const row of rideIdsRes[0].values) {
-      if (row[0] !== undefined && row[0] !== null) rideIds.push(Number(row[0]));
-    }
-  }
-  for (const rid of rideIds) {
-    db.run("DELETE FROM ride_wait_snapshots WHERE ride_id = ?", [rid]);
-  }
   db.run("DELETE FROM ride WHERE theme_park_id = ?", [themeParkId]);
 
-  db.run(
-    "UPDATE visitor SET ticket_id = NULL WHERE ticket_id IN (SELECT ticket_id FROM ticket WHERE theme_park_id = ?)",
-    [themeParkId],
-  );
-  db.run("DELETE FROM ticket_theme_park WHERE ticket_id IN (SELECT ticket_id FROM ticket WHERE theme_park_id = ?)", [
-    themeParkId,
-  ]);
   db.run("DELETE FROM ticket_theme_park WHERE theme_park_id = ?", [themeParkId]);
-  db.run("DELETE FROM ticket WHERE theme_park_id = ?", [themeParkId]);
+
+  const orphanRes = db.exec(`
+    SELECT t.ticket_id FROM ticket t
+    WHERE NOT EXISTS (SELECT 1 FROM ticket_theme_park ttp WHERE ttp.ticket_id = t.ticket_id)
+  `);
+  if (orphanRes[0]) {
+    for (const row of orphanRes[0].values) {
+      if (row[0] === undefined || row[0] === null) continue;
+      const tid = Number(row[0]);
+      db.run("UPDATE visitor SET ticket_id = NULL WHERE ticket_id = ?", [tid]);
+      db.run("DELETE FROM ticket WHERE ticket_id = ?", [tid]);
+    }
+  }
 
   db.run("DELETE FROM membership_theme_park WHERE theme_park_id = ?", [themeParkId]);
   db.run("UPDATE membership SET theme_park_id = NULL WHERE theme_park_id = ?", [themeParkId]);
-
-  db.run("DELETE FROM department_theme_park WHERE theme_park_id = ?", [themeParkId]);
-  db.run("UPDATE department SET theme_park_id = NULL WHERE theme_park_id = ?", [themeParkId]);
 
   db.run("DELETE FROM theme_park WHERE theme_park_id = ?", [themeParkId]);
   notifyDbChanged();
@@ -464,8 +466,6 @@ export async function adminDeleteRide(rideId: number): Promise<void> {
     throw new Error("Each park must keep at least one ride. Add another ride before removing this one.");
   }
 
-  db.run("DELETE FROM ride_wait_snapshots WHERE ride_id = ?", [rideId]);
-  db.run("DELETE FROM ride_schedule WHERE ride_id = ?", [rideId]);
   db.run("DELETE FROM ride WHERE ride_id = ?", [rideId]);
   syncRideCounts(db);
   notifyDbChanged();
@@ -501,7 +501,7 @@ export async function adminSetDepartmentHead(departmentId: number, employeeId: n
   const db = await getDb();
   if (employeeId !== null) {
     const chk = db.exec(
-      "SELECT department_id FROM employee WHERE employee_id = " +
+      "SELECT 1 FROM employee_department WHERE employee_id = " +
         String(employeeId) +
         " AND department_id = " +
         String(departmentId),
@@ -540,10 +540,11 @@ export async function adminUpdateEmployee(input: {
 export async function adminFireEmployee(employeeId: number): Promise<void> {
   const db = await getDb();
   db.run("UPDATE department SET dept_head_id = NULL WHERE dept_head_id = ?", [employeeId]);
+  db.run("DELETE FROM employee_department WHERE employee_id = ?", [employeeId]);
   db.run("DELETE FROM employee WHERE employee_id = ?", [employeeId]);
   db.run(`
     UPDATE department AS d SET num_employees = (
-      SELECT COUNT(*) FROM employee e WHERE e.department_id = d.department_id
+      SELECT COUNT(*) FROM employee_department ed WHERE ed.department_id = d.department_id
     )
   `);
   notifyDbChanged();

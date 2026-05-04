@@ -79,9 +79,7 @@ export function Admin() {
 
   const load = useCallback(async () => {
     await getDb();
-    const deptRows = await runQuery(
-      "SELECT theme_park_id FROM department WHERE theme_park_id IS NOT NULL",
-    );
+    const deptRows = await runQuery("SELECT DISTINCT theme_park_id FROM department_theme_park");
     const deptParks = new Set(deptRows.map((r) => Number(r.theme_park_id)));
     const p = await runQuery(
       "SELECT theme_park_id, name, location, number_of_rides FROM theme_park ORDER BY theme_park_id",
@@ -116,11 +114,17 @@ export function Admin() {
       })),
     );
     const d = await runQuery(`
-      SELECT d.department_id, d.name, d.num_employees, d.dept_head_id, d.theme_park_id,
+      SELECT d.department_id, d.name, d.num_employees, d.dept_head_id,
+        m.min_park AS theme_park_id,
         tp.name AS park_name
       FROM department d
-      LEFT JOIN theme_park tp ON tp.theme_park_id = d.theme_park_id
-      ORDER BY d.theme_park_id, d.department_id
+      JOIN (
+        SELECT department_id, MIN(theme_park_id) AS min_park
+        FROM department_theme_park
+        GROUP BY department_id
+      ) m ON m.department_id = d.department_id
+      LEFT JOIN theme_park tp ON tp.theme_park_id = m.min_park
+      ORDER BY m.min_park, d.department_id
     `);
     setDepartments(
       d.map((row) => ({
@@ -133,9 +137,10 @@ export function Admin() {
       })),
     );
     const em = await runQuery(`
-      SELECT employee_id, first_name, last_name, department_id, salary, phone_number, address
-      FROM employee
-      ORDER BY department_id, last_name, first_name
+      SELECT e.employee_id, e.first_name, e.last_name, ed.department_id, e.salary, e.phone_number, e.address
+      FROM employee e
+      JOIN employee_department ed ON ed.employee_id = e.employee_id
+      ORDER BY ed.department_id, e.last_name, e.first_name
     `);
     setEmployees(
       em.map((row) => ({
