@@ -27,16 +27,17 @@ export function Tickets() {
       await getDb();
       const rows = await runQuery(`
         SELECT
-          t.theme_park_id,
+          ttp.theme_park_id,
           tp.name AS park_name,
           tp.location AS park_location,
           t.type,
           t.price,
           t.duration
         FROM ticket t
-        JOIN theme_park tp ON tp.theme_park_id = t.theme_park_id
-        GROUP BY t.theme_park_id, tp.name, tp.location, t.type, t.price, t.duration
-        ORDER BY t.theme_park_id,
+        JOIN ticket_theme_park ttp ON ttp.ticket_id = t.ticket_id
+        JOIN theme_park tp ON tp.theme_park_id = ttp.theme_park_id
+        GROUP BY ttp.theme_park_id, tp.name, tp.location, t.type, t.price, t.duration
+        ORDER BY ttp.theme_park_id,
           CASE t.type WHEN 'Regular' THEN 1 WHEN 'VIP' THEN 2 ELSE 3 END
       `);
       if (!cancelled) {
