@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { getDb, runQuery } from "../lib/db";
+import { useCallback, useEffect, useState } from "react";
+import { getDb, onDbChanged, runQuery } from "../lib/db";
 
 type RideRow = {
   ride_id: number;
@@ -23,43 +23,45 @@ const statusTone: Record<string, string> = {
 export function Rides() {
   const [rows, setRows] = useState<RideRow[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      await getDb();
-      const r = await runQuery(`
-        SELECT
-          r.ride_id,
-          r.name,
-          tp.name AS park_name,
-          r.type,
-          r.min_height,
-          r.duration,
-          r.capacity,
-          r.status
-        FROM ride r
-        JOIN theme_park tp ON tp.theme_park_id = r.theme_park_id
-        ORDER BY tp.name ASC, r.status ASC, r.name ASC
-      `);
-      if (!cancelled) {
-        setRows(
-          r.map((x) => ({
-            ride_id: Number(x.ride_id),
-            name: String(x.name),
-            park_name: String(x.park_name),
-            type: String(x.type),
-            min_height: Number(x.min_height),
-            duration: Number(x.duration),
-            capacity: Number(x.capacity),
-            status: String(x.status),
-          })),
-        );
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const load = useCallback(async () => {
+    await getDb();
+    const r = await runQuery(`
+      SELECT
+        r.ride_id,
+        r.name,
+        tp.name AS park_name,
+        r.type,
+        r.min_height,
+        r.duration,
+        r.capacity,
+        r.status
+      FROM ride r
+      JOIN theme_park tp ON tp.theme_park_id = r.theme_park_id
+      ORDER BY tp.name ASC, r.status ASC, r.name ASC
+    `);
+    setRows(
+      r.map((x) => ({
+        ride_id: Number(x.ride_id),
+        name: String(x.name),
+        park_name: String(x.park_name),
+        type: String(x.type),
+        min_height: Number(x.min_height),
+        duration: Number(x.duration),
+        capacity: Number(x.capacity),
+        status: String(x.status),
+      })),
+    );
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    return onDbChanged(() => {
+      void load();
+    });
+  }, [load]);
 
   return (
     <div className="page-shell rides-page">

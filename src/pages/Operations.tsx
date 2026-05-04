@@ -1,38 +1,40 @@
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { getDb, runQuery } from "../lib/db";
+import { useCallback, useEffect, useState } from "react";
+import { getDb, onDbChanged, runQuery } from "../lib/db";
 
 export function Operations() {
   const [rows, setRows] = useState<Record<string, string | number | null>[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      await getDb();
-      const sql = `
-        SELECT
-          tp.name AS park,
-          r.name AS ride,
-          w.wait_minutes,
-          w.recorded_at,
-          r.status AS ride_status,
-          r.type AS ride_type
-        FROM ride_wait_snapshots w
-        JOIN ride r ON r.ride_id = w.ride_id
-        JOIN theme_park tp ON tp.theme_park_id = r.theme_park_id
-        ORDER BY w.recorded_at DESC
-      `;
-      const r = await runQuery(sql);
-      if (!cancelled) {
-        setRows(r);
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const load = useCallback(async () => {
+    await getDb();
+    const sql = `
+      SELECT
+        tp.name AS park,
+        r.name AS ride,
+        w.wait_minutes,
+        w.recorded_at,
+        r.status AS ride_status,
+        r.type AS ride_type
+      FROM ride_wait_snapshots w
+      JOIN ride r ON r.ride_id = w.ride_id
+      JOIN theme_park tp ON tp.theme_park_id = r.theme_park_id
+      ORDER BY w.recorded_at DESC
+    `;
+    const r = await runQuery(sql);
+    setRows(r);
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    return onDbChanged(() => {
+      void load();
+    });
+  }, [load]);
 
   const columns = rows[0] ? Object.keys(rows[0]) : [];
 
